@@ -24,14 +24,47 @@ class Qwen2MultiHeadAttention:
         max_seq_len: int = 32768,
         theta: int = 1000000,
     ):
-        pass
+        self.hidden_size = hidden_size
+        self.num_heads = num_heads
+        self.num_kv_heads = num_kv_heads
+        self.wq = wq
+        self.wk = wk
+        self.wv = wv
+        self.wo = wo
+        self.bq = bq
+        self.bk = bk
+        self.bv = bv
+        self.max_seq_len = max_seq_len
+        self.base = theta
 
     def __call__(
         self,
         x: mx.array,
         mask: mx.array | str | None = None,
     ) -> mx.array:
-        pass
+        *prefix, seq_len, emb_dim = x.shape
+        q = linear(x, self.wq, self.bq)
+        q = q.reshape(*prefix, seq_len, self.num_heads, self.hidden_size // self.num_heads)  # [B, L, H_q, D]
+        k = linear(x, self.wk, self.bk)
+        k = k.reshape(*prefix, seq_len, self.num_kv_heads, self.hidden_size // self.num_heads)  # [B, L, H, D]
+        v = linear(x, self.wv, self.bv)
+        v = v.reshape(*prefix, seq_len, self.num_kv_heads, self.hidden_size // self.num_heads)  # [B, L, H, D]
+
+        rope = RoPE(
+            dims = self.hidden_size // self.num_heads, 
+            seq_len = self.max_seq_len, 
+            base = self.base,
+            traditional = False
+        )
+        q = rope(q, offset=slice(0, seq_len))  # [B, L, H_q, D]
+        q = q.swapaxes(-3, -2)  # [B, H_q, L, D]
+        k = rope(k, offset=slice(0, seq_len))  # [B, L, H, D]
+        k = k.swapaxes(-3, -2)  # [B, H, L, D]
+        v = v.swapaxes(-3, -2)
+        x = scaled_dot_product_attention_grouped(query=q, key=k, value=v, mask=mask)  # [B, H_q, L, D]
+        x = x.swapaxes(-3, -2)  # [B, L, H_q, D]
+        x = x.reshape(*prefix, seq_len, emb_dim) # [B, L, E]
+        return linear(x, self.wo)
 
 
 class Qwen2MLP:

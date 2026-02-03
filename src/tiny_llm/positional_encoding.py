@@ -19,7 +19,7 @@ class RoPE:
         half_dim = self.dims // 2
         pos = mx.arange(self.max_seq_len)  # positions: [MAX_SEQ_LEN]
         i = mx.arange(half_dim)
-        inv_freq = mx.power(self.base, -2.0 * i / self.dims)  # inv_freq: [D//2]
+        inv_freq = mx.power(self.base, -2.0 * i / self.dims) # inv_freq: [D//2]
         freqs = pos[:, None] * inv_freq[None, :]  # [MAX_SEQ_LEN, 1] @ [1, D//2] -> [MAX_SEQ_LEN, D//2]
         return mx.cos(freqs), mx.sin(freqs)  # return cos_freqs, sin_freqs
 
