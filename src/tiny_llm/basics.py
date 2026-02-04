@@ -18,4 +18,4 @@ def linear(
     return x @ w.swapaxes(-2, -1) + bias
 
 def silu(x: mx.array) -> mx.array:
-    pass
+    return x / (1 + mx.exp(-x))
